@@ -91,6 +91,14 @@ def clean_text(block: str) -> str:
     return "\n".join(lines).strip()
 
 
+def to_bool(value) -> bool:
+    """Interpret a front-matter value as a boolean: blank / false / no / 0 ->
+    False, anything else (true, yes, a date, a name) -> True."""
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() not in ("", "false", "no", "0", "n", "none", "null")
+
+
 def first_of(mapping: dict, keys, default=""):
     for key in keys:
         if key in mapping and mapping[key] not in ("", None, []):
@@ -239,10 +247,18 @@ def md_to_dict(path: str) -> dict:
         "sarga": first_of(meta, ["ಸರ್ಗ", "ಸಗ೯", "sarga", "Sarga"]),
         "shloka_no": first_of(meta, ["ಶ್ಲೋಕ", "shloka", "shloka_no"]),
         "tags": meta.get("tags", []),
-        "sanskrit_scholar_verified": first_of(
-            meta, ["sanskrit-scholar-verified", "sanskrit_scholar_verified"]),
-        "kannada_scholar_verified": first_of(
-            meta, ["kannada-scholar-verified", "kannada_scholar_verified"]),
+        "sanskrit_scholar_verified": to_bool(first_of(
+            meta, ["sanskrit-scholar-verified", "sanskrit_scholar_verified"])),
+        "sanskrit_scholar_verified_by": first_of(
+            meta, ["sanskrit-scholar-verified-by", "sanskrit_scholar_verified_by"]),
+        "sanskrit_scholar_verified_on": first_of(
+            meta, ["sanskrit-scholar-verified-on", "sanskrit_scholar_verified_on"]),
+        "kannada_scholar_verified": to_bool(first_of(
+            meta, ["kannada-scholar-verified", "kannada_scholar_verified"])),
+        "kannada_scholar_verified_by": first_of(
+            meta, ["kannada-scholar-verified-by", "kannada_scholar_verified_by"]),
+        "kannada_scholar_verified_on": first_of(
+            meta, ["kannada-scholar-verified-on", "kannada_scholar_verified_on"]),
         "sanskrit": {
             "samhita": clean_text(sa.get("samhita", "")),
             "padaccheda": clean_text(sa.get("padaccheda", "")),

@@ -572,6 +572,23 @@ def hard_break_lines(text: str) -> str:
                      for i, ln in enumerate(lines))
 
 
+# The six scholar-verification front-matter fields: a flag plus who verified it
+# and when, for each language. They are reset on every regeneration.
+_VERIFICATION_FIELDS = (
+    "sanskrit-scholar-verified",
+    "sanskrit-scholar-verified-by",
+    "sanskrit-scholar-verified-on",
+    "kannada-scholar-verified",
+    "kannada-scholar-verified-by",
+    "kannada-scholar-verified-on",
+)
+
+
+def fm(key: str, value: str) -> str:
+    """Render a front-matter line, with no trailing space when the value is blank."""
+    return f"{key}:{' ' + value if value else ''}"
+
+
 def render_markdown(shloka: str, words: dict, sanskrit: dict,
                     kannada: dict, meta: dict) -> str:
     lines = []
@@ -590,12 +607,10 @@ def render_markdown(shloka: str, words: dict, sanskrit: dict,
               f"ಶ್ಲೋಕ: {meta['shloka_no']}",
               "tags:"]
     lines += [f"  - {t}" for t in meta["tags"]]
-    # scholar-verification flags (blank unless set in the input / via CLI)
-    sanskrit_verified = meta.get("sanskrit_scholar_verified", "")
-    kannada_verified = meta.get("kannada_scholar_verified", "")
-    lines += [f"sanskrit-scholar-verified:{' ' + sanskrit_verified if sanskrit_verified else ''}",
-              f"kannada-scholar-verified:{' ' + kannada_verified if kannada_verified else ''}",
-              "---"]
+    # scholar-verification fields — always reset on regeneration
+    lines += [fm(field, meta.get(field.replace("-", "_"), ""))
+              for field in _VERIFICATION_FIELDS]
+    lines += ["---"]
 
     # ---- Sanskrit ----  (verse / word-split / prose blocks are fenced so they
     # copy cleanly; the padartha bullet list is left as a list)
@@ -701,8 +716,10 @@ def extract_shloka(md_text: str) -> str:
 
 
 def read_frontmatter_flags(md_text: str) -> dict:
-    """Read the scholar-verification flags from a file's YAML front matter,
-    so re-running the guide on an already-verified file does not wipe them."""
+    """Read the scholar-verification flags from a file's YAML front matter.
+
+    Used only to WARN when regenerating a file that had been verified: the
+    flags are reset, because new content has to be re-verified."""
     flags = {}
     match = re.match(r"\A---\s*\n(.*?)\n---", md_text, re.DOTALL)
     if not match:
@@ -710,7 +727,7 @@ def read_frontmatter_flags(md_text: str) -> dict:
     for line in match.group(1).splitlines():
         key, _, value = line.partition(":")
         key = key.strip()
-        if key in ("sanskrit-scholar-verified", "kannada-scholar-verified"):
+        if key in _VERIFICATION_FIELDS:
             flags[key.replace("-", "_")] = value.strip()
     return flags
 
@@ -760,9 +777,17 @@ def main() -> None:
     parser.add_argument("--shloka-no", help="shloka number (default: derived from --input)")
     parser.add_argument("--tags", help="comma-separated tags (default: derived from --input)")
     parser.add_argument("--sanskrit-verified",
-                        help="value for the sanskrit-scholar-verified front matter field")
+                        help="sanskrit-scholar-verified: true/false")
+    parser.add_argument("--sanskrit-verified-by",
+                        help="sanskrit-scholar-verified-by: who verified it")
+    parser.add_argument("--sanskrit-verified-on",
+                        help="sanskrit-scholar-verified-on: date of verification")
     parser.add_argument("--kannada-verified",
-                        help="value for the kannada-scholar-verified front matter field")
+                        help="kannada-scholar-verified: true/false")
+    parser.add_argument("--kannada-verified-by",
+                        help="kannada-scholar-verified-by: who verified it")
+    parser.add_argument("--kannada-verified-on",
+                        help="kannada-scholar-verified-on: date of verification")
     parser.add_argument("--selftest", action="store_true",
                         help="test the Devanagari->Kannada map and exit")
     args = parser.parse_args()
@@ -780,8 +805,13 @@ def main() -> None:
             sys.exit(f"No Sanskrit shloka found in {args.input}")
         output_path = args.output or args.input        # replace in place by default
         derived = derive_meta_from_filename(args.input)
-        # preserve any scholar-verification flags already set in the file
-        existing_flags = read_frontmatter_flags(source_text)
+        # Regenerating the content invalidates any earlier verification, so the
+        # scholar-verification flags are RESET. Warn if the file was verified.
+        previous_flags = read_frontmatter_flags(source_text)
+        if any(previous_flags.values()):
+            print(f"[warn] resetting scholar-verification flags in {args.input} "
+                  f"({previous_flags}) — the regenerated content must be "
+                  f"re-verified", file=sys.stderr)
         if not derived:
             print(f"[warn] {args.input}: filename is not "
                   f"shloka-<kanda>-<sarga>-<shloka>.md; using defaults",
@@ -790,7 +820,6 @@ def main() -> None:
         shloka = " ".join(args.shloka) if args.shloka else DEFAULT_SHLOKA
         output_path = args.output
         derived = None
-        existing_flags = {}
 
     # explicit flags win over filename-derived values, which win over defaults
     kanda = args.kanda or (derived[0] if derived else None) or "ಬಾಲ ಕಾಂಡ"
@@ -800,10 +829,13 @@ def main() -> None:
 
     meta = {"kanda": kanda, "sarga": sarga, "shloka_no": shloka_no,
             "tags": [t.strip() for t in tags.split(",") if t.strip()],
-            "sanskrit_scholar_verified": (args.sanskrit_verified
-                                          or existing_flags.get("sanskrit_scholar_verified", "")),
-            "kannada_scholar_verified": (args.kannada_verified
-                                         or existing_flags.get("kannada_scholar_verified", ""))}
+            # reset to blank on every regeneration; only an explicit flag sets them
+            "sanskrit_scholar_verified": args.sanskrit_verified or "",
+            "sanskrit_scholar_verified_by": args.sanskrit_verified_by or "",
+            "sanskrit_scholar_verified_on": args.sanskrit_verified_on or "",
+            "kannada_scholar_verified": args.kannada_verified or "",
+            "kannada_scholar_verified_by": args.kannada_verified_by or "",
+            "kannada_scholar_verified_on": args.kannada_verified_on or ""}
 
     print(f"Metadata: kanda={kanda!r} sarga={sarga} shloka={shloka_no} "
           f"tags={meta['tags']}", file=sys.stderr)

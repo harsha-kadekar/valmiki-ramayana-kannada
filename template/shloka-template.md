@@ -4,7 +4,11 @@
 ಶ್ಲೋಕ:
 tags:
 sanskrit-scholar-verified:
+sanskrit-scholar-verified-by:
+sanskrit-scholar-verified-on:
 kannada-scholar-verified:
+kannada-scholar-verified-by:
+kannada-scholar-verified-on:
 ---
 ## संस्कृत (Sanskrit)
 

@@ -205,9 +205,13 @@ def build_markdown(kanda: int, sarga: int, shloka: int, verse: str) -> str:
         f"  - {_KANDA_SLUGS.get(kanda, 'kanda')}",
         f"  - sarga-{sarga}",
         "  - shloka",
-        # scholar-verification flags: blank by default, filled by a human later
+        # scholar-verification fields: blank by default, filled by a human later
         "sanskrit-scholar-verified:",
+        "sanskrit-scholar-verified-by:",
+        "sanskrit-scholar-verified-on:",
         "kannada-scholar-verified:",
+        "kannada-scholar-verified-by:",
+        "kannada-scholar-verified-on:",
         "---",
         "## संस्कृत (Sanskrit)",
         "",
